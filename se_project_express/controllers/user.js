@@ -2,11 +2,12 @@ const jwt = require("jsonwebtoken");
 const bcrypt = require("bcryptjs");
 const User = require("../models/user");
 const {
-  INVALID_ID,
-  NOT_FOUND,
-  INTERNAL_SERVER_ERROR,
-  MONGODB_DUPLICATE_ERROR,
-  UNAUTHORIZED,
+  NotFoundError,
+  BadRequestError,
+  UnauthorizedError,
+  ForbiddenError,
+  DuplicatedMongodbError,
+  BadInternalServerError
 } = require("../utils/errors");
 
 const { JWT_SECRET } = require("../utils/config");
@@ -14,20 +15,21 @@ const { handleError } = require("../utils/handleError");
 
 // getCurrentUser
 
-module.exports.getCurrentUser = (req, res) => {
-  User.findById(req.user._id)
+module.exports.getCurrentUser = (req, res, next) =>
+  User.findById({ _id: req.params.userId })
     .then((user) => {
       if (!user) {
-        return res.status(NOT_FOUND).send({ message: "User not found" });
+        throw new NotFoundError('No user with matching ID found');
       }
-      return res.status(200).send({ data: user });
+      return res.send(user);
     })
-    .catch(() =>
-      res
-        .status(INTERNAL_SERVER_ERROR)
-        .send({ message: "An error has occured on the server" })
-    );
-};
+    .catch((err) => {
+      if (err.name === "CastError") {
+        next(new BadRequestError("The id is an invalid format"));
+      } else {
+        next(err);
+      }
+    });
 
 // updateCurrentUser
 
